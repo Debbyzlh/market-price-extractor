@@ -25,7 +25,7 @@ def ocr_image_to_json(image_bytes, access_token):
 
     if not access_token:
         return {"error": "missing access token"}
-    st.write(access_token)
+    # st.write(access_token)
 
     url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/accurate?access_token={access_token}"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -39,8 +39,8 @@ def ocr_image_to_json(image_bytes, access_token):
     response = requests.post(url, headers=headers, data=data)
 
     #change
-    import streamlit as st
-    st.write(response.json())
+    # import streamlit as st
+    # st.write(response.json())
     try:
         return response.json()
     except Exception:
