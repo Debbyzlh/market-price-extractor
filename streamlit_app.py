@@ -1,83 +1,60 @@
 import streamlit as st
-
-# Set page configuration
-st.set_page_config(
-    page_title="Photo Upload Demo",
-    layout="wide"
-)
-
-# Add a title
-st.title("Market Price Reader")
-
-# Create two columns for the upload blocks
-col1, col2 = st.columns(2)
-
-# First upload block
-with col1:
-    st.header("iPhone & iPad Photo Upload")
-    # st.write("Upload your first photo here")
-    photo1 = st.file_uploader(
-        "Choose your first photo",
-        type=["jpg", "jpeg", "png"],
-        key="uploader1"
-    )
-    
-    if photo1 is not None:
-        st.image(photo1, caption="iPhone & iPad uploaded photo", use_column_width=True)
-        st.write(f"Filename: {photo1.name}")
-        st.write(f"File size: {photo1.size} bytes")
-
-# Second upload block
-with col2:
-    st.header("Mac Photo Upload")
-    # st.write("Upload your second photo here")
-    photo2 = st.file_uploader(
-        "Choose your second photo",
-        type=["jpg", "jpeg", "png"],
-        key="uploader2"
-    )
-    
-    if photo2 is not None:
-        st.image(photo2, caption="Mac uploaded photo", use_column_width=True)
-        st.write(f"Filename: {photo2.name}")
-        st.write(f"File size: {photo2.size} bytes") 
-
-
 import pandas as pd
+import base64
+import json
 from io import BytesIO
+from get_json import get_access_token, ocr_image_to_json
+from json_to_tbl import extract_triplets_by_code_width
 
-# Add a separator
-st.markdown("---")
+# Use your API credentials
+YOUR_API_KEY = "Xkk7U2sOfAwEKT3BrH4Atucg"
+YOUR_SECRET_KEY = "ss2Ki6UWcfuCM58spfKt22hhg8u91WIa"
 
-# Excel Download Section
-st.header("Excel Download Section")
-st.write("Generate and download a sample Excel file")
+st.set_page_config(layout="wide", page_title="Market Scanner")
 
-# Create sample data
-data = {
-    'Product': ['iPhone', 'iPad', 'Mac'],
-    'Price': [100, 200, 300],
-    'Date': ['2025-01-01', '2025-01-02', '2025-01-03']
-}
-df = pd.DataFrame(data)
+# App UI
+st.title("💻📱 市场价格抓取")
 
-# Create a button to download the Excel file
-def convert_df_to_excel():
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, sheet_name='Sheet1', index=False)
-    output.seek(0)  # Reset pointer to beginning of file
-    return output.getvalue()
+tabs = st.tabs(["iPhone", "iPad", "Mac"])
 
-excel_file = convert_df_to_excel()
+# Placeholder tabs
+for tab in tabs[:2]:
+    with tab:
+        st.info("敬请期待！")
 
-st.download_button(
-    label="Download Excel File",
-    data=excel_file,
-    file_name="sample_data.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+# ---- Mac Tab Implementation ----
+with tabs[2]:
+    st.header("上传Mac市场价格图片")
 
-# Display the data as a preview
-st.subheader("Preview of Market Price Data")
-st.dataframe(df)
+    uploaded_file = st.file_uploader("上传图片", type=["jpg", "jpeg", "png", "pdf"])
+    if uploaded_file:
+        st.image(uploaded_file, caption="上传的图片", use_container_width=True)
+
+        if st.button("📤 提取数据"):
+            with st.spinner("从百度获取OCR结果..."):
+                image_bytes = uploaded_file.read()
+                token = get_access_token(YOUR_API_KEY, YOUR_SECRET_KEY)
+                json_data = ocr_image_to_json(image_bytes, token)
+
+            st.success("OCR完成，提取表格中...")
+
+            # Convert JSON to table
+            records = extract_triplets_by_code_width(json_data["words_result"])
+            df = pd.DataFrame(records)
+
+            if df.empty:
+                st.warning("没有提取到有效数据。")
+            else:
+                st.dataframe(df)
+
+                # Download button
+                buffer = BytesIO()
+                df.to_excel(buffer, index=False)
+                buffer.seek(0)
+
+                st.download_button(
+                    label="📥 下载Excel",
+                    data=buffer,
+                    file_name="mac_products.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
