@@ -30,26 +30,26 @@ def ocr_image_to_json(image_bytes, access_token):
     response = requests.post(url, data=payload, headers=headers)
     return response.json()
 
-def extract_table(image_path):
-    access_token = get_access_token(API_KEY, SECRET_KEY)
-    if not access_token:
-        raise ValueError("❌ Failed to get access token")
+# def extract_table(image_path):
+#     access_token = get_access_token(API_KEY, SECRET_KEY)
+#     if not access_token:
+#         raise ValueError("❌ Failed to get access token")
 
-    url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/accurate?access_token={access_token}"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+#     url = f"https://aip.baidubce.com/rest/2.0/ocr/v1/accurate?access_token={access_token}"
+#     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-    with open(image_path, "rb") as f:
-        img_base64 = base64.b64encode(f.read()).decode()
+#     with open(image_path, "rb") as f:
+#         img_base64 = base64.b64encode(f.read()).decode()
 
-    payload = {"image": img_base64}
-    response = requests.post(url, data=payload, headers=headers)
-    data = response.json()
+#     payload = {"image": img_base64}
+#     response = requests.post(url, data=payload, headers=headers)
+#     data = response.json()
 
-    # Save to JSON
-    with open("baidu_body_cells-test03.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+#     # Save to JSON
+#     with open("baidu_body_cells-test03.json", "w", encoding="utf-8") as f:
+#         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print("✅ Saved response to baidu_body_cells-test03.json")
+#     print("✅ Saved response to baidu_body_cells-test03.json")
 
-if __name__ == "__main__":
-    extract_table("/Users/lehanzhao/Desktop/抓/data/test02.png")  # replace with your image path
+# if __name__ == "__main__":
+#     extract_table("/Users/lehanzhao/Desktop/抓/data/test02.png")  # replace with your image path

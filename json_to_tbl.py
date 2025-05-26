@@ -2,11 +2,11 @@ import json
 import pandas as pd
 
 # Load JSON OCR result from your specific file
-input_file = "baidu_body_cells-test03.json"
+# input_file = "baidu_body_cells-test03.json"
 output_file = "extracted_products.csv"
 
-with open(input_file, "r", encoding="utf-8") as file:
-    data = json.load(file)
+# with open(input_file, "r", encoding="utf-8") as file:
+#     data = json.load(file)
 
 def extract_triplets_by_code_width(words_result, max_width=50, max_code_value=1000):
     """
@@ -48,7 +48,7 @@ def extract_triplets_by_code_width(words_result, max_width=50, max_code_value=10
 
     return triplets
 
-# Extract and save the data
-records = extract_triplets_by_code_width(data["words_result"])
-df = pd.DataFrame(records)
-df.to_csv(output_file, index=False, encoding="utf-8-sig")
+# # Extract and save the data
+# records = extract_triplets_by_code_width(data["words_result"])
+# df = pd.DataFrame(records)
+# df.to_csv(output_file, index=False, encoding="utf-8-sig")
