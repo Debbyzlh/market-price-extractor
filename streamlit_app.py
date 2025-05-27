@@ -133,7 +133,13 @@ with main_tabs[0]:
                 iphone_df["MPN"] = iphone_df["MPN"].astype(str).str.strip()
 
                 for _, row in df_all.iterrows():
-                    iphone_df.loc[iphone_df["MPN"] == row["mpn"], "未税市场价"] = row["price"]
+                    try:
+                        price_numeric = float(row["price"])
+                    except (ValueError, TypeError):
+                        price_numeric = None
+
+                    iphone_df.loc[iphone_df["MPN"] == row["mpn"], "未税市场价"] = price_numeric
+                    
 
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
