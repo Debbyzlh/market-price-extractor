@@ -12,6 +12,8 @@ YOUR_SECRET_KEY = "ss2Ki6UWcfuCM58spfKt22hhg8u91WIa"
 
 st.set_page_config(layout="wide", page_title="Market Scanner")
 
+st.info("⚙️ 如果您刚刚唤醒了应用，请耐心等待几秒加载全部功能…")
+
 # App UI
 st.title("💻📱 市场价格抓取")
 
@@ -24,15 +26,15 @@ for tab in tabs[:2]:
 
 # ---- Mac Tab Implementation ----
 with tabs[2]:
-    st.header("📷 图片 + Excel 自动映射")
+    st.header("请确保图片和Excel格式正确")
 
-    uploaded_img = st.file_uploader("上传Mac价格截图", type=["jpg", "jpeg", "png", "pdf"])   
+    uploaded_img = st.file_uploader("1. 上传Mac价格截图", type=["jpg", "jpeg", "png"])   
 
-    uploaded_excel = st.file_uploader("上带有CPU sheet 的Excel文件（文件名必须全英文）", type=["xlsx"])
-    uploaded_mpn_code = st.file_uploader("上传 MPN-code 映射表", type=["xlsx"])
+    uploaded_excel = st.file_uploader("2. 上传带有CPU表单的Excel文件（文件名必须全英文）", type=["xlsx"])
+    uploaded_mpn_code = st.file_uploader("3. 上传 MPN-code.xlsx", type=["xlsx"])
 
     if uploaded_img and uploaded_excel and uploaded_mpn_code:
-        if st.button("📤 识别 + 映射"):
+        if st.button("📤 识别 + 填表"):
             with st.spinner("🎯 正在处理..."):
                 import tempfile
                 import json
@@ -80,7 +82,8 @@ with tabs[2]:
                     temp_json_path
                 )
 
-                st.success("✅ 映射完成！请查看或下载结果：")
+                st.success("✅ 填写完成！请查看或下载结果：")
+                # st.balloons
                 st.dataframe(df)
 
                 from io import BytesIO
