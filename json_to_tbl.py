@@ -1,5 +1,6 @@
 def extract_iphone_prices_from_json(ocr_json, color_match_path, input_excel_path, product_chosen):
     import pandas as pd
+    import json
 
     # Step 1: load color mapping (e.g., 黑色 → Black)
     if hasattr(color_match_path, "read"):
@@ -16,20 +17,20 @@ def extract_iphone_prices_from_json(ocr_json, color_match_path, input_excel_path
         iphone_df = pd.read_excel(input_excel_path, sheet_name="iPhone")
     else:
         iphone_df = pd.read_excel(str(input_excel_path), sheet_name="iPhone")
-    iphone_df.columns = iphone_df.columns.str.strip()  # ✅ Strip column names FIRST
+    iphone_df.columns = iphone_df.columns.str.strip().str.lower()  # ✅ Strip column names FIRST
 
     # Forward-fill merged cells
-    iphone_df[["NAME", "Storsize Short Desc"]] = iphone_df[["NAME", "Storsize Short Desc"]].ffill()
+    iphone_df[["name", "storsize short desc"]] = iphone_df[["name", "storsize short desc"]].ffill()
 
 
     # ✅ Then filter rows
     product_chosen = product_chosen.strip()
-    iphone_df = iphone_df[iphone_df["NAME"].astype(str).str.strip() == product_chosen]
+    iphone_df = iphone_df[iphone_df["name"].astype(str).str.strip() == product_chosen]
     print("📋 Rows after filtering by product name:", len(iphone_df))  #change
 
     # Normalize for matching
-    iphone_df["Storsize Short Desc"] = iphone_df["Storsize Short Desc"].astype(str).str.lower().str.strip()
-    iphone_df["Color Short Desc"] = iphone_df["Color Short Desc"].astype(str).str.lower().str.strip()
+    iphone_df["storsize short desc"] = iphone_df["storsize short desc"].astype(str).str.lower().str.strip()
+    iphone_df["color short desc"] = iphone_df["color short desc"].astype(str).str.lower().str.strip()
 
     # Step 3: parse OCR JSON
     results = ocr_json["words_result"]
@@ -60,18 +61,18 @@ def extract_iphone_prices_from_json(ocr_json, color_match_path, input_excel_path
                     print("🔍 Trying to match:")
                     print(f"  - size: '{matched_size}'")
                     print(f"  - color_en: '{matched_color_en}'")
-                    print("🧾 Available sizes in Excel:", iphone_df["Storsize Short Desc"].unique())
-                    print("🧾 Available colors in Excel:", iphone_df["Color Short Desc"].unique())
+                    print("🧾 Available sizes in Excel:", iphone_df["storsize short desc"].unique())
+                    print("🧾 Available colors in Excel:", iphone_df["color short desc"].unique())
 
                     matched = iphone_df[
-                        (iphone_df["Storsize Short Desc"] == matched_size) &
-                        (iphone_df["Color Short Desc"] == matched_color_en)
+                        (iphone_df["storsize short desc"] == matched_size) &
+                        (iphone_df["color short desc"] == matched_color_en)
                     ]
 
                     if not matched.empty:
                         for _, row in matched.iterrows():
                             output_rows.append({
-                                "mpn": row["MPN"],
+                                "mpn": row["mpn"],
                                 "storsize": matched_size,
                                 "color_cn": matched_color_cn,
                                 "color_en": matched_color_en,
@@ -94,6 +95,8 @@ def extract_iphone_prices_from_json(ocr_json, color_match_path, input_excel_path
 
 def extract_ipad_prices_from_json(ocr_json, color_match_path, input_excel_path, product_chosen):
     import pandas as pd
+    import json
+    import streamlit as st
 
     # Step 1: load color mapping (e.g., 黑色 → Black)
     if hasattr(color_match_path, "read"):
@@ -123,10 +126,11 @@ def extract_ipad_prices_from_json(ocr_json, color_match_path, input_excel_path, 
     # ✅ Then filter rows
     product_chosen = product_chosen.strip()
     ipad_df = ipad_df[ipad_df["name"].astype(str).str.strip() == product_chosen]
-    print("📋 Rows after filtering by product name:", len(ipad_df))  #change
+    # print("📋 Rows after filtering by product name:", len(ipad_df))  #change
 
     # Normalize for matching
     ipad_df["storsize short desc"] = ipad_df["storsize short desc"].astype(str).str.lower().str.strip().str.replace(" ", "")
+    # print("🧾 Available sizes in Excel:", ipad_df["storsize short desc"].unique()) #change
     ipad_df["color short desc"] = ipad_df["color short desc"].astype(str).str.lower().str.strip()
 
     # Step 3: parse OCR JSON
@@ -140,11 +144,29 @@ def extract_ipad_prices_from_json(ocr_json, color_match_path, input_excel_path, 
 
     for i, item in enumerate(indexed):
         word = item["text"].lower()
-        # Fix OCR typos like '512GE' → '512GB'
-        word = word.replace("ge", "gb").replace("gd", "gb").replace("1tb纳米", "1 tb(nano-texture glas)").replace("2tb纳米", "2 tb(nano-texture glas)") 
-        word = word.replace(" ", "")
+        # Fix OCR typos like '512G' → '512GB'
+        word = (word.lower()
+                .replace(" ", "")
+                .replace("ge", "gb")
+                .replace("gd", "gb")
+                .replace("g", "gb")
+                .replace("1tb纳米", "1tb(nano-textureglas)")
+                .replace("2tb纳米", "2tb(nano-textureglas)")
+                .replace("tb纳米", "tb(nano-textureglas)")
+                .replace("纳米", "(nano-textureglas)")
+                .replace("（", "(").replace("）", ")")  # fix full-width brackets
+        )
+        # word = word.replace(" ", "")
 
-        matched_size = next((s for s in ["256gb", "512gb", "128gb", "1tb", "2tb", "1tb(nano-texture glas)", "2tb(nano-texture glas)"] if s in word), None)
+        storage_options = [
+            "1tb(nano-textureglas)",
+            "2tb(nano-textureglas)",
+            "256gb", "512gb", "128gb", "1tb", "2tb"
+        ]
+        storage_options = sorted(storage_options, key=len, reverse=True)
+        cleaned_word = word.lower().replace(" ", "").replace("(", "").replace(")", "")
+        matched_size = next((s for s in storage_options if s.replace("(", "").replace(")", "") in cleaned_word), None)
+        # matched_size = next((s for s in storage_options if s in word.lower().replace(" ", "")), None)
         matched_color_cn = next((cn for cn in color_map if cn in word), None)
 
         if matched_size and matched_color_cn:
@@ -156,11 +178,17 @@ def extract_ipad_prices_from_json(ocr_json, color_match_path, input_excel_path, 
                 price = cand["text"]
 
                 if price.isdigit():
-                    print("🔍 Trying to match:")
-                    print(f"  - size: '{matched_size}'")
-                    print(f"  - color_en: '{matched_color_en}'")
-                    print("🧾 Available sizes in Excel:", ipad_df["storsize short desc"].unique())
-                    print("🧾 Available colors in Excel:", ipad_df["color short desc"].unique())
+                    # print("🔍 Trying to match:")
+                    # print(f"  - size: '{matched_size}'")
+                    # print(f"  - color_en: '{matched_color_en}'")
+                    # print("🧾 Available sizes in Excel:", ipad_df["storsize short desc"].unique())
+                    # print("🧾 Available colors in Excel:", ipad_df["color short desc"].unique())
+                    # st.write("🔍 Trying to match:")
+                    # st.write(f"  - size: '{matched_size}'")
+                    # st.write(f"  - color_en: '{matched_color_en}'")
+                    # st.write(f"  - color_candidates: '{color_candidates}'")
+                    # st.write("🧾 Available sizes in Excel:", ipad_df["storsize short desc"].unique())
+                    # st.write("🧾 Available colors in Excel:", ipad_df["color short desc"].unique())
 
                     matched = ipad_df[
                         (ipad_df["storsize short desc"] == matched_size) &
@@ -191,3 +219,9 @@ def extract_ipad_prices_from_json(ocr_json, color_match_path, input_excel_path, 
 
 # results
 # len(results)
+
+
+
+# normalized_word = "1TB纳米黑色".lower().strip().replace(" ", "").replace("（", "(").replace("）", ")")
+# normalized_word = normalized_word.replace("1tb纳米", "1tb(nano-textureglas)")
+# normalized_word
