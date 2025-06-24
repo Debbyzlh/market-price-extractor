@@ -5,6 +5,7 @@ import json
 from io import BytesIO
 import tempfile
 from PIL import Image
+import requests
 from get_json import get_access_token, ocr_image_to_json, is_valid_image
 from excel_code_price import map_mpn_to_ocr_price
 from json_to_tbl import extract_iphone_prices_from_json, extract_ipad_prices_from_json
@@ -13,41 +14,57 @@ from json_to_tbl import extract_iphone_prices_from_json, extract_ipad_prices_fro
 YOUR_API_KEY = "Xkk7U2sOfAwEKT3BrH4Atucg"
 YOUR_SECRET_KEY = "ss2Ki6UWcfuCM58spfKt22hhg8u91WIa"
 
+# GitHub raw URLs for color mapping files
+IPHONE_COLOR_URL = "https://raw.githubusercontent.com/Debbyzlh/market-price-extractor/main/color_en_cn_match.xlsx"
+IPAD_COLOR_URL = "https://raw.githubusercontent.com/Debbyzlh/market-price-extractor/main/ipad_color_en_cn_match.xlsx"
+
 st.set_page_config(layout="wide", page_title="Market Scanner")
 
-st.info("⚙️ 如果您刚刚唤醒了应用，请耐心等待几秒加载全部功能…")
+# Function to download file from GitHub
+@st.cache_data
+def download_file_from_github(url):
+    """Download file from GitHub raw URL and return as bytes"""
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.content
+    except Exception as e:
+        st.error(f"无法从GitHub下载文件: {e}")
+        return None
 
 # App UI
-st.title("💻📱 市场价格抓取")
+st.title("市场价格抓取")
 
 main_tabs = st.tabs(["📱 iPhone 总览", "📘 iPad 总览", "💻 Mac 总览"])
 
 # ---- iPhone Tab Implementation ----
 def render_iphone_tab():
     with main_tabs[0]:
-        st.header("请确保图片和Excel格式正确")
-        uploaded_excel = st.file_uploader("📤 上传带有iPhone表单的Excel文件", type=["xlsx"])
+        # st.header("请确保图片和Excel格式正确")
+        uploaded_excel = st.file_uploader("📤 上传 Excel（iPhone）", type=["xlsx"])
         
-
-        # Upload color mapping Excel
-        iphone_color_match_file = st.file_uploader("📘 上传 color_en_cn_match.xlsx", type=["xlsx"], key="iphone_color_map")
-        if not iphone_color_match_file:
-            st.warning("⚠️ 请上传颜色对照表以启用图片识别功能。")
-            # st.stop()
+        # Download color mapping from GitHub
+        # st.info("🔄 正在从GitHub下载iPhone颜色对照表...")
+        iphone_color_bytes = download_file_from_github(IPHONE_COLOR_URL)
+        
+        if not iphone_color_bytes:
+            st.error("❌ 无法下载iPhone颜色对照表，请检查网络连接或联系管理员。")
             return
+        
+        # st.success("✅ iPhone颜色对照表已自动下载") #delete
+    
 
         if uploaded_excel:
             df_iphone = pd.read_excel(uploaded_excel, sheet_name="iPhone")  # assumes correct sheet
             df_iphone.columns = df_iphone.columns.str.strip().str.lower()
             if "name" not in df_iphone.columns:
                 st.error("❌ iPhone表单中必须包含 'NAME' 列。")
-                # st.stop()
                 return
 
             if "未税市场价" not in df_iphone.columns:
                 st.warning("⚠️ 当前Excel中未找到 '未税市场价' 列，价格无法回填。")
-            else:
-                st.success("✅ 已检测到 '未税市场价' 列。")
+            # else:
+            #     st.success("✅ 已检测到 '未税市场价' 列。")
 
             # Step 0: Get distinct product names
             product_names = [str(p) for p in df_iphone["name"].dropna().unique().tolist()]
@@ -69,8 +86,8 @@ def render_iphone_tab():
                     
 
             # Step 2: After all uploads, confirm and extract
-            if st.button("📤 我已上传所有截图，开始识别并填表", key="iphone_extract_btn"):
-                st.info("⏳ 正在处理所有图片...")
+            if st.button("📤 我已上传全部截图", key="iphone_extract_btn"):
+                # st.info("⏳ 正在处理所有图片...")
                 all_results = []
 
                 # Save uploaded Excel and color mapping to temp files
@@ -81,7 +98,7 @@ def render_iphone_tab():
                 temp_excel.close()
 
                 temp_color = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                temp_color.write(iphone_color_match_file.read())
+                temp_color.write(iphone_color_bytes)
                 temp_color.flush()
                 temp_color_path = temp_color.name
                 temp_color.close()
@@ -126,8 +143,8 @@ def render_iphone_tab():
                     before = len(df_all)
                     df_all = df_all.drop_duplicates(subset="mpn", keep="last")  # or keep="first"
                     after = len(df_all)
-                    st.info(f"🔍 去重后剩余 {after} 条记录（移除 {before - after} 条重复项）")
-                    st.success(f"✅ 累计提取 {len(df_all)} 条记录")
+                    # st.info(f"🔍 去重后剩余 {after} 条记录（移除 {before - after} 条重复项）")
+                    st.success(f"✅ 去重后提取 {after} 条记录")
                     st.dataframe(df_all)
 
                     uploaded_excel.seek(0)
@@ -165,15 +182,18 @@ def render_iphone_tab():
 def render_ipad_tab():
 
     with main_tabs[1]:
-        st.header("请确保图片和Excel格式正确")
-        uploaded_ipad_excel = st.file_uploader("📤 上传带有iPad表单的Excel文件", type=["xlsx"])
+        # st.header("请确保图片和Excel格式正确")
+        uploaded_ipad_excel = st.file_uploader("📤 上传 Excel（iPad）", type=["xlsx"])
 
-        # Upload color mapping Excel
-        ipad_color_match_file = st.file_uploader("📘 上传 ipad_color_en_cn_match.xlsx", type=["xlsx"], key="ipad_color_map")
-        if not ipad_color_match_file:
-            st.warning("⚠️ 请上传iPad颜色对照表以启用图片识别功能。")
-            # st.stop()
+        # Download color mapping from GitHub
+        # st.info("🔄 正在从GitHub下载iPad颜色对照表...")
+        ipad_color_bytes = download_file_from_github(IPAD_COLOR_URL)
+        
+        if not ipad_color_bytes:
+            st.error("❌ 无法下载iPad颜色对照表，请检查网络连接或联系管理员。")
             return
+        
+        # st.success("✅ iPad颜色对照表已自动下载")
 
         if uploaded_ipad_excel:
             df = pd.read_excel(uploaded_ipad_excel, sheet_name="iPad")  # assumes correct sheet
@@ -181,13 +201,12 @@ def render_ipad_tab():
     
             if "name" not in df.columns:
                 st.error("❌ iPad表单中必须包含 'name' 列。")
-                # st.stop()
                 return
 
             if "未税市场价" not in df.columns:
                 st.warning("⚠️ 当前Excel中未找到 '未税市场价' 列，价格无法回填。")
-            else:
-                st.success("✅ 已检测到 '未税市场价' 列。")
+            # else:
+            #     st.success("✅ 已检测到 '未税市场价' 列。")
 
             # Step 0: Get distinct product names
             ipad_product_names = [str(p) for p in df["name"].dropna().unique().tolist()]
@@ -210,7 +229,7 @@ def render_ipad_tab():
 
             # Step 2: After all uploads, confirm and extract
             if st.button("📤 我已上传所有截图，开始识别并填表", key="ipad_extract_btn"):
-                st.info("⏳ 正在处理所有图片...")
+                # st.info("⏳ 正在处理所有图片...")
                 ipad_all_results = []
 
                 # Save uploaded Excel and color mapping to temp files
@@ -221,7 +240,7 @@ def render_ipad_tab():
                 ipad_temp_excel.close()
 
                 ipad_temp_color = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                ipad_temp_color.write(ipad_color_match_file.read())
+                ipad_temp_color.write(ipad_color_bytes)
                 ipad_temp_color.flush()
                 ipad_temp_color_path = ipad_temp_color.name
                 ipad_temp_color.close()
@@ -230,7 +249,6 @@ def render_ipad_tab():
                 token = get_access_token(YOUR_API_KEY, YOUR_SECRET_KEY)
                 if not token:
                     st.error("❌ 无法获取百度Token")
-                    # st.stop()
                     return
 
                 # Process each product's images
@@ -268,8 +286,8 @@ def render_ipad_tab():
                     ipad_before = len(ipad_df_all)
                     ipad_df_all = ipad_df_all.drop_duplicates(subset="mpn", keep="last")  # or keep="first"
                     ipad_after = len(ipad_df_all)
-                    st.info(f"🔍 去重后剩余 {ipad_after} 条记录（移除 {ipad_before - ipad_after} 条重复项）")
-                    st.success(f"✅ 累计提取 {len(ipad_df_all)} 条记录")
+                    # st.info(f"🔍 去重后剩余 {ipad_after} 条记录（移除 {ipad_before - ipad_after} 条重复项）")
+                    st.success(f"✅ 去重后提取 {ipad_after} 条记录")
                     st.dataframe(ipad_df_all)
 
                     uploaded_ipad_excel.seek(0)
@@ -308,7 +326,7 @@ def render_ipad_tab():
 # ---- Mac Tab Implementation ----
 def render_mac_tab():
     with main_tabs[2]:
-        st.header("请确保图片和Excel格式正确")
+        # st.header("请确保图片和Excel格式正确")
 
         uploaded_img = st.file_uploader("1. 上传Mac价格截图", type=["jpg", "jpeg", "png"])   
 
